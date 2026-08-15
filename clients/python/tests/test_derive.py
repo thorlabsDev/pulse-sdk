@@ -96,8 +96,7 @@ def test_compute_budget_price_and_limit_are_parsed():
 
 
 def test_compute_budget_absent_returns_none_not_a_default():
-    # No implicit 200k default -- absent must be distinguishable from zero,
-    # which is the documented footgun in Jetstream's own reference.
+    # An absent value must remain distinguishable from an explicit zero.
     t = tx_with([b"\xa1" * 32], [], 1, 0, 0)
     assert compute_unit_price(t) is None
     assert compute_unit_limit(t) is None

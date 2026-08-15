@@ -132,13 +132,10 @@ QUIC application close codes:
   envelope on the control stream first:
   `{"type":"error","code":4,"reason":"unsupported protocol version; this server speaks wire v2"}`,
   length-prefixed per §4, followed by a close whose QUIC reason bytes are the
-  plain string `"unsupported protocol version"`. The server waits (bounded, up
-  to 100 ms) for the envelope to actually reach the peer before closing, so a
-  human reading a packet capture — or a client that bothers to read the
-  control stream before treating the close as fatal — sees why. The one
-  exception is the client that never opened a control stream (§2.2): there is
-  no stream to write on, so it gets the close code and its plain-text reason
-  (`"no control message; cannot negotiate wire v2"`) and nothing more.
+  plain string `"unsupported protocol version"`. The server finishes the
+  envelope write before closing. A client that never opened a control stream
+  (§2.2) receives only the close code and the plain-text reason
+  `"no control message; cannot negotiate wire v2"`.
 - **Codes 1, 2, 3 and 5** close with a **plain UTF-8 string** as the QUIC
   CONNECTION_CLOSE reason (e.g. `b"invalid control message"`,
   `b"unauthenticated"`, `b"token revoked"`, or the quota error's `Display`
@@ -629,14 +626,6 @@ patches.
 Wire v2 currently emits 81-byte transaction datagrams and 17-byte heartbeat
 datagrams; decoders still accept longer datagrams as described in §7.
 
-(Server-side note, non-normative for a client: the server encodes at most one
-bare-frame and one enriched-frame byte sequence per transaction, regardless
-of how many subscribers of each kind are attached, and shares the encoded
-bytes across same-kind subscribers. This is why a bare subscriber's frame
-bytes are identical whether or not an enriched subscriber happens to be
-attached at the same moment — it is a cost optimization, not something a
-client needs to account for.)
-
 ## 11. Filter updates
 
 To change your filter, `vote`, or `fields` after the first control message,
@@ -644,8 +633,8 @@ open another client-initiated bidi stream and send another control JSON
 object. The response is the same length-prefixed ack envelope as the first
 message (§4), minus the `v` key.
 
-**A control message — first or update — is authoritative for the whole
-subscription, not a partial patch.** An update message replaces
+**A control message — first or update — is a complete subscription selection,
+not a partial patch.** An update message replaces
 `account_include`/`account_exclude`/`account_required`, `vote`, and `fields`
 wholesale; any field you omit resets to that field's default, it does not
 carry over from your previous message. Concretely: if your first message set
@@ -660,8 +649,8 @@ streaming under the previous filter** — contrast this with a rejected first
 message, which always closes the connection because there is no prior
 subscription to fall back to (§3).
 
-**Filter-update atomicity is NOT claimed.** Frames already sitting in a
-subscriber's bounded delivery channel were matched under the OLD filter and
+**Filter updates are not atomic.** Frames already sitting in a subscriber's
+bounded delivery channel were matched under the previous filter and
 will still be delivered after you receive the update's `ok:true` ack. The ack
 means "applied going forward from here," not "the exact boundary between old
 and new is this frame." Do not assume otherwise when reconciling a filter
@@ -669,12 +658,9 @@ change against what you actually received.
 
 ## 12. Derived fields (client-side, not on the wire)
 
-These are deliberately **not** wire fields. They cost nothing to compute from
-bytes the frame already carries, so shipping them as TLVs would spend wire
-bytes and encode time on the server's single-threaded hot path to save a
-caller a few lines. Implement them as plain functions over the decoded
-transaction body (§6.3); SDKs may ship these as helpers (`thornode_pulse_wire::derive`
-in Rust, `derive.go`, `derive.py`):
+These values are **not** separate wire fields. Compute them from the decoded
+transaction body (§6.3), or use the helpers in
+`thornode_pulse_wire::derive`, `derive.go`, and `derive.py`:
 
 | Field | How to compute |
 |---|---|

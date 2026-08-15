@@ -205,8 +205,7 @@ mod tests {
 
     #[test]
     fn compute_budget_absent_returns_none_not_a_default() {
-        // No implicit 200k default — absent must be distinguishable from zero,
-        // which is the documented footgun in Jetstream's own reference.
+        // An absent value must remain distinguishable from an explicit zero.
         let t = tx_with(vec![[0xA1; 32]], vec![], 1, 0, 0);
         assert_eq!(compute_unit_price(&t), None);
         assert_eq!(compute_unit_limit(&t), None);
