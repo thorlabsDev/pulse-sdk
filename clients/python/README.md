@@ -4,12 +4,12 @@ Async Python SDK for the ThorNode Pulse QUIC transaction stream (wire v2),
 built on [aioquic](https://github.com/aiortc/aioquic).
 
 ```sh
-pip install 'thornode-pulse[examples]'
+pip install 'thornode-pulse[examples] @ https://github.com/thorlabsDev/pulse-sdk/releases/download/v0.1.1/thornode_pulse-0.1.1-py3-none-any.whl'
 ```
 
 The `examples` extra installs `base58` for canonical Solana signature text.
-Applications that consume signature bytes directly can install just
-`thornode-pulse`.
+Applications that consume signature bytes directly can omit the `examples`
+extra from the command.
 
 The SDK requires Python 3.9 or newer. Distribution and import names differ in
 the usual Python style:

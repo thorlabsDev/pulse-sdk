@@ -13,8 +13,8 @@ Neither feed is a landing, confirmation, replay, or end-to-end completeness guar
 
 | Language | Package | Guide |
 | --- | --- | --- |
-| Rust | `thornode-pulse` | [Rust SDK](clients/rust/README.md) |
-| Python | `thornode-pulse` / `thornode_pulse` | [Python SDK](clients/python/README.md) |
+| Rust | [`thornode-pulse`](https://crates.io/crates/thornode-pulse) | [Rust SDK](clients/rust/README.md) |
+| Python | [`thornode-pulse`](https://github.com/thorlabsDev/pulse-sdk/releases/latest) / `thornode_pulse` | [Python SDK](clients/python/README.md) |
 | Go | `github.com/thorlabsDev/pulse-go` | [Separate Go repository](https://github.com/thorlabsDev/pulse-go) |
 
 Use the target and token shown for the same location in the ThorNode dashboard. The SDKs validate the server certificate and hostname by default.

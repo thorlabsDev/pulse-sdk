@@ -436,21 +436,12 @@ with its own error (§6.1).
 
 ### 6.5.1 Maximum frame size
 
-`MAX_FULL_TX_BODY = 65536` (64 KiB) bounds the positional body **plus** its
-TLV trailer combined, as measured by the actual decoder
-(`decode_full_tx_prefix` in `pulse-wire/src/frame.rs`, which is handed the
-entire post-`msg_type`/`flags` remainder of the frame and rejects it outright
-if that combined length exceeds 65536 bytes, before it has even looked at the
-TLV trailer). In practice this bound is never close to binding: real Solana
-transactions are on the order of ~1.2 KB and even a heavily ALT-loaded one
-resolves to at most a few hundred addresses, nowhere near the combined
-65536-byte ceiling.
+`MAX_FULL_TX_BODY = 65536` (64 KiB) limits the complete remainder of a
+`MSG_TX` frame after `msg_type` and `flags`: the positional body and TLV trailer
+combined. Reject a transaction frame when that remainder exceeds 65,536 bytes.
 
-Separately, all three SDKs bound the frame's outer `u32` length prefix itself
-— the value they read *before* they know whether the frame is a transaction,
-a heartbeat, or something newer — to a more generous ceiling, so that reading
-the length prefix is enough to safely size a receive buffer without first
-understanding the frame:
+`MAX_FULL_TX_FRAME` limits the outer `u32` frame length before the message type
+is known:
 
 ```
 MAX_FULL_TX_FRAME = MAX_FULL_TX_BODY + 2 × (65535 + 3) + 2
@@ -458,22 +449,10 @@ MAX_FULL_TX_FRAME = MAX_FULL_TX_BODY + 2 × (65535 + 3) + 2
                    = 196614 bytes
 ```
 
-(`clients/rust/src/lib.rs`'s `MAX_FULL_TX_FRAME`, mirrored in the Go and
-Python SDKs.) It accounts for the 64 KiB body cap plus two maximally-sized TLV
-records (`u16::MAX` value bytes plus the 3-byte type+len header, one for each
-loaded-address list) plus the 2-byte `msg_type`/`flags` header. **A
-third-party implementation should use this same 196614-byte value as the
-sanity ceiling on the frame length prefix** — reject anything larger as
-corrupt before attempting to read that many bytes — rather than inventing its
-own number.
-
-Note the asymmetry: 196614 is a client-side allocation-safety ceiling, not a
-size the encoder can currently produce, since the *inner* 65536-byte
-combined-body-plus-trailer bound above is strictly tighter and would reject
-such a frame first. Both bounds are documented here because a correct client
-needs the outer one (to size a buffer before parsing) and should not be
-surprised by the inner one (which is what will actually reject an
-oversized frame in practice).
+Reject an outer length above 196,614 before allocating or reading the frame.
+For `MSG_TX`, apply the 65,536-byte inner limit after reading the type and
+flags. The outer value is an allocation ceiling, not a valid encoded
+transaction size.
 
 ## 7. Datagrams (sig-first tier)
 
