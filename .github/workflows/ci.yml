@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-msrv:
+    name: Rust 1.85 library compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --locked -p thornode-pulse-wire --lib
+      - run: cargo check --locked -p thornode-pulse --lib
+
+  rust:
+    name: Rust quality and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --all-targets
+      - run: test -f conformance/wire-v2/vectors.json
+      - run: cargo package --manifest-path pulse-wire/Cargo.toml --allow-dirty --no-verify
+      - run: cargo package --manifest-path clients/rust/Cargo.toml --allow-dirty --list
+
+  rust-security:
+    name: Rust dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit
+
+  python:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.13"]
+    defaults:
+      run:
+        working-directory: clients/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: clients/python/pyproject.toml
+      - run: python -m pip install --upgrade pip build ruff twine pip-audit
+      - run: python -m pip install -e ".[test]"
+      - run: python -m ruff check thornode_pulse tests --select F,E9,B
+      - run: python -m pytest -q
+      - run: python -m pip_audit
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - run: test -f ../../conformance/wire-v2/vectors.json

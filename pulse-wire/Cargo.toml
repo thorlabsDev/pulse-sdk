@@ -1,0 +1,22 @@
+[package]
+name = "thornode-pulse-wire"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Wire codec for the pulse QUIC decoded-shred transaction stream: frame/datagram encoding and client-side derived fields"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/thorlabsDev/pulse-sdk"
+homepage = "https://github.com/thorlabsDev/pulse-sdk"
+documentation = "https://docs.rs/thornode-pulse-wire"
+readme = "README.md"
+keywords = ["quic", "solana", "streaming", "protocol"]
+categories = ["encoding", "network-programming"]
+# This integration test consumes the shared repository-root fixture, which is
+# outside the published crate archive.
+exclude = ["tests/conformance.rs"]
+
+# Keep the wire codec dependency-free.
+[dependencies]
+
+[dev-dependencies]
+serde_json = "1"

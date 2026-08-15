@@ -1,0 +1,7 @@
+include CHANGELOG.md
+include LICENSE-APACHE
+include LICENSE-MIT
+include README.md
+prune examples
+prune tests
+global-exclude __pycache__ *.py[cod]
