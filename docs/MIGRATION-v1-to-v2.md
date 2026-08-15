@@ -200,8 +200,8 @@ and never compute a gap from it. `0`, by contrast, is a real assigned value.
 
 ## 4. Filter updates
 
-Sending a second control message still updates your filter, and now gets an
-ack. Two things worth knowing:
+Sending a second control message updates your filter and returns an ack. Filter
+updates follow these rules:
 
 - **The tier is fixed by your first message.** `full` and `v` are ignored on
   updates.

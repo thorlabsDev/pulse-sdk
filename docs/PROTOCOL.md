@@ -216,10 +216,8 @@ produces any connection-level event to wake a blocked reader:
 ## 5. `seq`
 
 `seq` is a per-connection, per-subscriber monotonic counter assigned to
-**transactions only** — it appears as the `seq` field on a sig-first datagram
-(§7) and is what a heartbeat's `highest_seq` (§8) reports the high-water mark
-of. State this plainly, because it is exactly what a client gets wrong if left
-to infer it:
+**transactions only**. It appears on sig-first datagrams (§7), and heartbeats
+report its high-water mark as `highest_seq` (§8):
 
 - **Assigned at match time, before any droppable stage.** The distributor
   delivers with a non-blocking send and drops the delivery if a subscriber's
@@ -281,10 +279,9 @@ offset  size  field
 ```
 
 i.e. the exact byte sequence `50 4C 53 32 02 00`. **A client must read and
-verify this before treating anything else on the stream as a frame**, and
-must treat a mismatch as a hard, loud failure (not a silent skip) — it means
-either you are not actually talking to a wire-v2 server or the stream was
-corrupted in transit.
+verify this before treating anything else on the stream as a frame.** A
+mismatch is a protocol error: the peer is not serving wire v2, or the stream
+was corrupted in transit.
 
 Why a stream-level preamble and not a per-frame version tag: a version byte
 folded into each frame's own content cannot be sniffed reliably, because a
@@ -549,8 +546,7 @@ count if useful, keeping the 0-indexing in mind.
 
 ## 9. Vote transactions
 
-Solana vote transactions are the majority of tx volume and pure noise for
-most consumers, so the server **drops them by default**. The `vote` control
+The server excludes Solana vote transactions by default. The `vote` control
 field mirrors Yellowstone's `vote` semantics:
 
 - **absent / omitted** → select non-vote transactions;
@@ -612,12 +608,10 @@ that only asked for `"alt"` receives. Unrecognized group names inside `fields`
 are ignored, not rejected.
 
 **`fields` applies to filter UPDATEs, not only to the first control
-message.** This is a deliberate design choice, not an oversight: `full`
-(§2.1) is immutable after the first message because it selects a tier: a
-structural choice about which stream/datagrams you get at all. `fields` is
-not structural in that sense — it only changes what a frame on the
-already-open full-tx stream contains — so an update message that changes
-`fields` takes effect on frames from that point forward. An update that
+message.** `full` (§2.1) is immutable after the first message because it
+selects the delivery tier. `fields` only changes the contents of frames on an
+already-open full-tx stream, so an update takes effect on subsequent frames.
+An update that
 **omits** `fields` sets enrichment to **off** (the empty-list default), not
 "leave it as it was" — see §11 for why control messages are not partial
 patches.
