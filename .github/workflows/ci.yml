@@ -14,7 +14,7 @@ jobs:
     name: Rust 1.85 library compatibility
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.85.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --locked -p thornode-pulse-wire --lib
@@ -24,7 +24,7 @@ jobs:
     name: Rust quality and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -40,7 +40,7 @@ jobs:
     name: Rust dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo install cargo-audit --locked
       - run: cargo audit
@@ -56,8 +56,8 @@ jobs:
       run:
         working-directory: clients/python
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -66,7 +66,8 @@ jobs:
       - run: python -m pip install -e ".[test]"
       - run: python -m ruff check thornode_pulse tests --select F,E9,B
       - run: python -m pytest -q
-      - run: python -m pip_audit
+      - if: matrix.python-version == '3.13'
+        run: python -m pip_audit
       - run: python -m build
       - run: python -m twine check dist/*
       - run: test -f ../../conformance/wire-v2/vectors.json
