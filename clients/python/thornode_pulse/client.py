@@ -424,10 +424,8 @@ class AckTimeout(TimeoutError):
     """Raised when the server does not answer a control message with a
     complete ack envelope within :data:`ACK_TIMEOUT` seconds.
 
-    This is the "peer accepted the stream, then went quiet" case: nothing at
-    the QUIC layer is wrong, so no connection event will ever arrive to
-    release the waiter. Failing loudly beats a subscribe call that never
-    returns while data flows past."""
+    This can occur when the peer accepts the control stream but sends neither
+    a complete ack nor a connection event."""
 
 
 class PreambleTimeout(TimeoutError):
@@ -439,7 +437,7 @@ class FullStreamTimeout(TimeoutError):
 
 
 class FullQueueOverflow(RuntimeError):
-    """Terminal error raised instead of silently dropping ordered frames."""
+    """Raised when the bounded ordered-frame queue reaches capacity."""
 
     def __init__(self, capacity: int):
         self.capacity = capacity
@@ -485,11 +483,11 @@ def _parse_ack(raw: bytes) -> Ack:
 
 
 def _check_ack(ack: Ack, *, initial: bool = False) -> Ack:
-    """Interprets an already-decoded :class:`Ack`: a rejection surfaces as
-    :class:`Rejected` (never silently treated as success), and a version
-    mismatch on the FIRST control message's ack surfaces as
-    :class:`VersionMismatch`. Split out from the I/O so this decision logic
-    is unit-testable without a live connection."""
+    """Interprets an already-decoded :class:`Ack`.
+
+    A rejected request raises :class:`Rejected`; a version mismatch on the
+    first control message raises :class:`VersionMismatch`.
+    """
     if ack.kind == "error":
         if ack.code is None:
             raise BadFrame("control error envelope is missing its code")
@@ -753,19 +751,11 @@ class _FullStreamState:
 
 
 class _PreambleGate:
-    """A one-shot future gate for "the full-tx stream preamble has been
-    verified".
+    """Signals when the full-tx stream preamble has been verified.
 
-    :meth:`PulseClient.subscribe_full` awaits this before ever handing back
-    a :class:`FullSub` -- matching the Rust/Go SDKs, where `accept_uni()`
-    followed by `verify_preamble()` are blocking, synchronous steps inside
-    their own `subscribe_full`, so a bad (or missing -- connection closed
-    before 6 bytes ever arrived) preamble fails the subscribe call itself
-    rather than surfacing later, silently, on the caller's first iteration.
-    aioquic's event-driven model has no direct equivalent of "block until
-    the stream is open and N bytes have arrived", so this reconstructs it
-    with a future that :class:`_PulseProtocol` resolves from
-    `quic_event_received`.
+    :meth:`PulseClient.subscribe_full` waits on this gate before returning a
+    :class:`FullSub`. :class:`_PulseProtocol` resolves it from
+    ``quic_event_received``.
     """
 
     def __init__(self) -> None:
@@ -812,9 +802,8 @@ class _PreambleGate:
 #: turns a slow consumer into unbounded memory and latency growth, which is
 #: harder to notice than loss and worse for a latency product.
 SIG_QUEUE_LEN = 4096
-# Full-tx frames are ordered. The queue is bounded, but an overflow is a loud
-# terminal error rather than a silent eviction which would create an
-# undetectable hole in the stream.
+# Full-tx frames are ordered. Reaching the bounded queue capacity terminates
+# the subscription with FullQueueOverflow.
 FULL_QUEUE_LEN = 1024
 
 
@@ -1164,8 +1153,8 @@ class SigFirstSub:
     aioquic buffers only a small budget of datagrams itself and evicts on
     overflow, so this SDK drains it continuously into a bounded queue rather
     than leaving datagrams there until the caller happens to iterate. A slow
-    consumer costs you the OLDEST items (counted by :attr:`dropped`) rather
-    than silently losing whatever arrives while you work.
+    consumer causes the oldest queued items to be evicted and counted by
+    :attr:`dropped`.
     """
 
     def __init__(self, proto: _PulseProtocol):
@@ -1347,7 +1336,7 @@ class FullSub:
 
     @property
     def dropped(self) -> int:
-        """Frames refused at the queue boundary before a loud overflow."""
+        """Frames refused at the queue boundary before termination."""
         return self._proto.full_dropped
 
     @property
@@ -1432,10 +1421,10 @@ class PulseClient:
         refused the subscription, or :class:`VersionMismatch` if it
         negotiated a wire version this SDK does not speak.
 
-        The stream's 6-byte preamble is read and verified here, before the
-        subscription is ever returned to the caller -- a mismatch (or a
-        connection that closes before the preamble completes) is a loud
-        :class:`thornode_pulse.frame.BadPreamble`, never a silent skip."""
+        The stream's 6-byte preamble is read and verified before the
+        subscription is returned. A mismatch, or a connection that closes
+        before the preamble completes, raises
+        :class:`thornode_pulse.frame.BadPreamble`."""
         async with self._subscribe_lock:
             self._ensure_unsubscribed()
             control = (flt or Filter())._to_control(True, self._token, fields)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+Clarifies public error and protocol documentation without changing the API or
+wire format.
+
 ## 0.1.0
 
 Initial public preview of `thornode-pulse` for Pulse wire v2.

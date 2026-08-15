@@ -187,12 +187,9 @@ pub enum Error {
     /// frame was incomplete.
     BadFrameWithClose(CloseInfo),
     /// The full-tx stream's opening bytes were not
-    /// `thornode_pulse_wire::frame::PREAMBLE` — the strongest signal available that
-    /// this client is not actually talking to a wire v2 server (or the
-    /// stream was corrupted in transit). Deliberately its own loud variant:
-    /// never folded into `BadFrame`, and never silently skipped — the
-    /// preamble is the one place a client confirms it is speaking the
-    /// protocol it thinks it is.
+    /// `thornode_pulse_wire::frame::PREAMBLE`. The peer is not serving wire
+    /// v2, or the stream was corrupted in transit. This remains distinct from
+    /// `BadFrame` so callers can identify a protocol mismatch at setup.
     BadPreamble,
     /// The full-tx preamble was incomplete or invalid and the peer also sent
     /// an application close. Both the protocol error and close context are
@@ -201,9 +198,8 @@ pub enum Error {
     /// The server answered a control message with `{"ok": false, ...}`.
     /// Carries the server's stated reason.
     Rejected(String),
-    /// No complete control ack arrived within [`ACK_TIMEOUT`]. A subscribe
-    /// call must fail loudly here rather than wait forever on a peer that
-    /// accepted the control stream and then went quiet.
+    /// No complete control ack arrived within [`ACK_TIMEOUT`]. The subscribe
+    /// call returns this error instead of waiting indefinitely.
     AckTimeout,
     /// The server acknowledged a full-tx subscription but did not open and
     /// preface its stream within [`FULL_STREAM_TIMEOUT`].
@@ -336,8 +332,8 @@ pub const FULL_STREAM_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Binds the client's UDP socket with an enlarged receive buffer.
 ///
-/// The buffer request is best-effort: the kernel silently clamps it to
-/// `rmem_max` rather than failing, so a clamped result is not an error.
+/// The buffer request is best-effort. The kernel may clamp it to `rmem_max`,
+/// so a smaller resulting buffer is not a connection error.
 fn client_socket(addr: SocketAddr, recv_buffer: usize) -> std::io::Result<std::net::UdpSocket> {
     let sock = socket2::Socket::new(
         socket2::Domain::for_address(addr),
@@ -426,9 +422,8 @@ impl PulseClient {
     /// `fields` requests enrichment groups (currently just `["alt"]`, which
     /// adds each frame's ALT-loaded addresses).
     ///
-    /// The stream's 6-byte preamble is read and verified here, before the
-    /// subscription is ever returned to the caller — a mismatch is a loud
-    /// [`Error::BadPreamble`], never a silent skip.
+    /// The stream's 6-byte preamble is read and verified before the
+    /// subscription is returned. A mismatch returns [`Error::BadPreamble`].
     pub async fn subscribe_full(self, filter: &Filter, fields: &[&str]) -> Result<FullSub> {
         let ack = self.send_control(filter, true, fields).await?;
         ensure_initial_ack(&ack)?;
@@ -643,16 +638,12 @@ async fn connect_to(
     })
 }
 
-/// Rejects a control message the server answered with `ok: false`, surfacing
-/// its stated reason rather than letting the caller silently proceed as if
-/// the subscription it asked for actually took effect — and rejects an ack
-/// naming a negotiated version this SDK does not speak.
+/// Returns the server's reason when a control message is rejected, and rejects
+/// an ack that names an unsupported wire version.
 ///
-/// The version check is not decoration. On the **sig-first tier the ack's `v`
-/// is the only version channel there is**: that tier is DATAGRAM-only, so
-/// there is no stream and therefore no preamble to confirm the dialect
-/// another way. Without this check a client acked `v:1` proceeds happily and
-/// misparses every 81-byte v2 datagram as a 72-byte v1 one. The server closes
+/// On the **sig-first tier the ack's `v` is the only version channel**: that
+/// tier is DATAGRAM-only, so there is no stream preamble. Without this check,
+/// a client could parse an 81-byte v2 datagram as the 72-byte v1 layout. The server closes
 /// (code 4) rather than acking a version it cannot serve, so in practice this
 /// is a backstop — but it is the only one this tier has.
 fn ensure_envelope(ack: &Ack) -> Result<()> {
@@ -911,10 +902,10 @@ pub const SIG_QUEUE_LEN: usize = 4096;
 
 /// Live sig-first subscription. Call [`SigFirstSub::next`] in a loop.
 ///
-/// A background task drains the connection as fast as the network delivers, so
-/// a slow `next` loop costs you the OLDEST items (counted by
-/// [`SigFirstSub::dropped`]) rather than silently losing whatever arrives while
-/// you work. [`SigFirstSub::gaps`] is a separate, provisional counter for
+/// A background task drains the connection as fast as the network delivers.
+/// When a slow `next` loop fills the queue, the oldest items are evicted and
+/// counted by [`SigFirstSub::dropped`]. [`SigFirstSub::gaps`] is a separate,
+/// provisional counter for
 /// sequence numbers that appear not to have arrived (network loss, a shed
 /// delivery — or merely reordering, which it cannot tell apart), as opposed to
 /// `dropped`, which counts items that definitely arrived and were evicted

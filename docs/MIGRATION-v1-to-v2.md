@@ -24,8 +24,7 @@ If you connect with an unmodified v1 client, you will see one of these, and
 | Connection closed, code **4**, reason `no control message; cannot negotiate wire v2` | You connected and sent nothing. Under v1 that defaulted to the signature firehose; under v2 it is refused, because silence is indistinguishable from a v1 client. |
 | A custom v2 connection receives datagrams, but slots and signatures decode incorrectly | Its control message requests v2 while its datagram parser still uses the v1 layout. See §2 — the length changed from 72 to 81 bytes and the first byte is now a type tag, not the slot. |
 
-The failure is loud by design. Nothing silently misparses if you follow this
-page.
+A v1 client fails before decoding any transaction data.
 
 ---
 

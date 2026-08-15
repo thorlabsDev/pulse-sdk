@@ -83,9 +83,8 @@ async with connect_pulse(target, token=token) as client:
 The full feed uses one ordered QUIC stream. It is a live feed, not replay or
 backfill, and the SDK does not claim end-to-end losslessness. Its local queue
 is bounded; if a consumer falls behind, iteration raises `FullQueueOverflow`
-instead of silently discarding an ordered frame. If neither a transaction
-frame nor a heartbeat arrives within the idle budget, iteration raises
-`FullStreamTimeout`.
+when the queue reaches capacity. If neither a transaction frame nor a
+heartbeat arrives within the idle budget, iteration raises `FullStreamTimeout`.
 
 ## TLS
 

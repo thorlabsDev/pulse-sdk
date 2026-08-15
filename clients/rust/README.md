@@ -60,7 +60,7 @@ after the server enqueues them; its bounded queue can shed before that point.
 This is not an end-to-end lossless, at-least-once, landed, or completeness
 guarantee. The stream opens with a 6-byte
 preamble this SDK reads and verifies before `subscribe_full` ever returns —
-a mismatch fails loudly (`Error::BadPreamble`), not silently.
+a mismatch returns `Error::BadPreamble`.
 
 ```rust
 use thornode_pulse::{Filter, Frame, PulseClient};

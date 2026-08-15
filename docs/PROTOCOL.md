@@ -63,8 +63,8 @@ field ship without breaking an existing server. Conversely, the server ignores
 unknown values inside `fields` for the same reason (§10).
 
 A pubkey that fails to base58-decode, or that decodes to a length other than
-32 bytes, is a **decode error** on the whole message — the server never
-silently drops just that key.
+32 bytes, is a **decode error** on the whole message. The server rejects the
+message instead of dropping only that key.
 
 ### 2.1 The tier is fixed by the first message
 
@@ -409,9 +409,8 @@ Rules, in the order a decoder should apply them:
   type.
 - **An unknown `type` MUST be skipped**, never rejected — this is the
   forward-compatibility mechanism for adding fields later.
-- **A duplicate `type` is a protocol error.** Reject the whole frame.
-  Silently preferring the first or last occurrence is exactly the kind of
-  ambiguity that produces two implementations that disagree with each other.
+- **A duplicate `type` is a protocol error.** Reject the whole frame instead
+  of choosing one occurrence.
 - A heartbeat emitted by wire v2 contains both TLV type 3 and type 4. The
   reference decoders use `0` when either field is absent. For
   `highest_seq`, `0` is a real assigned sequence value; only the explicit

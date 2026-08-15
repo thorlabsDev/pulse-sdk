@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thornode-pulse"
-version = "0.1.0"
+version = "0.1.1"
 description = "Async Python SDK for the ThorNode Pulse QUIC transaction stream"
 readme = { file = "README.md", content-type = "text/markdown" }
 license = "MIT OR Apache-2.0"

@@ -24,13 +24,9 @@ class BadFrame(ValueError):
 
 class BadPreamble(ValueError):
     """Raised when the full-tx stream's opening bytes are not exactly
-    :data:`PREAMBLE` -- the strongest signal available that this client is
-    not actually talking to a wire v2 server (or the stream was corrupted in
-    transit).
-
-    Deliberately its own exception, never folded into :class:`BadFrame`: the
-    preamble is the one place a client confirms it is speaking the protocol
-    it thinks it is, and a mismatch there must never be a silent skip.
+    :data:`PREAMBLE`. The peer is not serving wire v2, or the stream was
+    corrupted in transit. This remains distinct from :class:`BadFrame` so
+    callers can identify a protocol mismatch during setup.
     """
 
 
@@ -97,10 +93,8 @@ def put_tlv(buf: bytearray, t: int, value: bytes) -> None:
 def parse_tlvs(src: bytes) -> List[Tuple[int, bytes]]:
     """Parses a TLV trailer to the end of `src`.
 
-    Unknown types are returned to the caller rather than rejected --
-    skipping them is what makes new fields additive. A duplicate type IS
-    rejected: silently preferring first or last is the kind of ambiguity
-    that produces two implementations which disagree.
+    Unknown types are returned to the caller so new fields remain additive.
+    Duplicate types are rejected.
     """
     out: List[Tuple[int, bytes]] = []
     seen: set = set()
