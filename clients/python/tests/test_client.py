@@ -481,9 +481,8 @@ def test_preamble_gate_resolve_error_on_a_never_awaited_gate_logs_nothing():
     # sig-first-only connection). Poisoning a Future that nobody retrieves
     # the exception from makes asyncio log an "exception was never
     # retrieved" traceback at garbage-collection time -- a false
-    # BadPreamble alarm on the majority path. Reproduce that GC-time
-    # callback directly via a custom exception handler, the same way the
-    # reviewer's repro did.
+    # BadPreamble alarm on the majority path. Exercise that GC-time callback
+    # directly through a custom exception handler.
     async def run():
         loop = asyncio.get_running_loop()
         contexts = []
@@ -712,9 +711,8 @@ def test_quic_event_received_ack_stream_resolves_the_waiting_future():
 
 def test_connection_close_preserves_code_even_when_a_frame_was_partial():
     # A frame whose 4-byte length prefix arrived but whose body never did is
-    # LOSS, not a clean close -- the sender said how many bytes were coming and
-    # then stopped. Go's nextFrame has always returned ErrBadFrame here; Rust
-    # and Python used to report a clean end of stream. Aligned on Go's.
+    # truncated, not a clean close: the sender declared a body length and then
+    # closed before delivering all of it.
     async def run():
         proto = _bare_proto()
         tx = sample_full_tx()
